@@ -55,11 +55,31 @@ export function NewChatDialog() {
     };
 
     // Start a new chat with a user
+    // const startChat = (userId: string) => {
+    //     sendMessageMutation.mutate({
+    //         recipientId: userId,
+    //         content: 'Hi there!', // Initial message
+    //         threadId: 0,
+    //     });
+    // };
+
+    const createThreadMutation = trpc.chat.createThread.useMutation();
+
     const startChat = (userId: string) => {
-        sendMessageMutation.mutate({
-            recipientId: userId,
-            content: 'Hi there!', // Initial message
-        });
+        createThreadMutation.mutate(
+            { recipientId: userId },
+            {
+                onSuccess: (thread) => {
+                    sendMessageMutation.mutate({
+                        threadId: thread.id,
+                        recipientId: userId,
+                        content: 'Hi there!',
+                    });
+                    setActiveThreadId(thread.id);
+                    closeNewChat();
+                },
+            },
+        );
     };
 
     return (

@@ -4,7 +4,7 @@ import {
     unsubscribeUser,
     sendNotification,
 } from '@/app/actions';
-import { urlBase64ToUint8Array } from '@/app/page';
+import { urlBase64ToUint8Array } from '@/lib/webpush';
 import { Button } from '@/components/ui/button'; // shadcn Button
 import { Input } from '@/components/ui/input'; // shadcn Input
 import {

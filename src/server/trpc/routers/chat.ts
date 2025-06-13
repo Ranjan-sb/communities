@@ -338,6 +338,66 @@ export const chatRouter = router({
     //             });
     //         }
     //     }),
+
+    createThread: publicProcedure
+        .input(
+            z.object({
+                recipientId: z.string(),
+            }),
+        )
+        .mutation(async ({ input, ctx }) => {
+            if (!ctx.session?.user) {
+                throw new TRPCError({
+                    code: 'UNAUTHORIZED',
+                    message: 'You must be logged in to create a thread',
+                });
+            }
+
+            const senderId = ctx.session.user.id;
+
+            const existingThread = await db.query.chatThreads.findFirst({
+                where: or(
+                    and(
+                        eq(chatThreads.user1Id, senderId),
+                        eq(chatThreads.user2Id, input.recipientId),
+                    ),
+                    and(
+                        eq(chatThreads.user1Id, input.recipientId),
+                        eq(chatThreads.user2Id, senderId),
+                    ),
+                ),
+            });
+
+            if (existingThread) {
+                return existingThread;
+            }
+            // Fetch orgId for the current user
+            const [userRecord] = await db
+                .select({
+                    orgId: users.orgId,
+                })
+                .from(users)
+                .where(eq(users.id, senderId));
+
+            if (!userRecord?.orgId) {
+                throw new TRPCError({
+                    code: 'BAD_REQUEST',
+                    message: 'Organization not found for sender',
+                });
+            }
+            const [newThread] = await db
+                .insert(chatThreads)
+                .values({
+                    orgId: userRecord.orgId,
+                    user1Id: senderId,
+                    user2Id: input.recipientId,
+                    createdAt: new Date(),
+                })
+                .returning();
+
+            return newThread;
+        }),
+
     sendMessage: publicProcedure
         .input(
             z.object({
