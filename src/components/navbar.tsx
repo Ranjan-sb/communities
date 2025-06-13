@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signOut } from '@/server/auth/client';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { Globe, Menu, X } from 'lucide-react';
+import { Globe, Menu, X, Bell, List } from 'lucide-react';
 import { ChatButton } from '@/components/chat-button';
 import { useChat } from '@/providers/chat-provider';
+import { PushNotificationManager } from './notifications/PushNotificationManager';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 export function Navbar() {
     const { data: session } = useSession();
@@ -17,6 +19,34 @@ export function Navbar() {
     const [mounted, setMounted] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const { closeChat } = useChat();
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [notifications, setNotifications] = useState<
+        { title: string; body: string }[]
+    >([]);
+    const [pushManagerOpen, setPushManagerOpen] = useState(false);
+    const pushManagerRef = useRef<HTMLDivElement>(null);
+
+    // Close PushManager if clicked outside
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (
+                pushManagerRef.current &&
+                !pushManagerRef.current.contains(event.target as Node)
+            ) {
+                setPushManagerOpen(false);
+            }
+        }
+
+        if (pushManagerOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        } else {
+            document.removeEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [pushManagerOpen]);
 
     // Set mounted state to true after hydration
     useEffect(() => {
@@ -29,6 +59,11 @@ export function Navbar() {
         await signOut();
         router.push('/');
     };
+
+    const toggleNotifications = () => {
+        setNotificationsOpen(!notificationsOpen);
+    };
+    const togglePushManager = () => setPushManagerOpen(!pushManagerOpen);
 
     // Function to determine if a path is active
     const isActive = (path: string) => {
@@ -110,10 +145,32 @@ export function Navbar() {
                             </div>
                         )}
                         <ThemeToggle />
+                        {mounted && session && (
+                            <>
+                                <ChatButton />
+                                {/* Bell Icon for Push Notifications */}
+                                {/* <PushNotificationManager /> */}
+                                {/* Notifications Button */}
+                                {/* Push Notification Button */}
+                                <button
+                                    onClick={togglePushManager}
+                                    className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
+                                >
+                                    <Bell className="mr-2 h-6 w-6" />
+                                </button>
+
+                                <button
+                                    onClick={toggleNotifications}
+                                    className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800"
+                                >
+                                    <List className="mr-2 h-6 w-6" />
+                                    Notifications
+                                </button>
+                            </>
+                        )}
                         {mounted ? (
                             session ? (
                                 <div className="hidden items-center space-x-4 sm:flex">
-                                    <ChatButton />
                                     <span className="text-sm text-gray-700 dark:text-gray-300">
                                         {session.user.email}
                                     </span>
@@ -165,6 +222,45 @@ export function Navbar() {
                     </div>
                 </div>
             </div>
+
+            {/* Push Notification Drawer */}
+            {pushManagerOpen && (
+                <div
+                    ref={pushManagerRef}
+                    className="absolute top-16 right-16 z-50 w-full max-w-md"
+                >
+                    <PushNotificationManager />
+                </div>
+            )}
+
+            {/* Notifications Drawer */}
+            {notificationsOpen && (
+                <div className="absolute top-16 right-0 z-50 w-64 bg-white shadow-lg dark:bg-gray-800">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Notifications</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            {notifications.length > 0 ? (
+                                notifications.map((notification, index) => (
+                                    <div key={index} className="py-2">
+                                        <p className="text-sm font-medium">
+                                            {notification.title}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {notification.body}
+                                        </p>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-500">
+                                    No notifications available.
+                                </p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             {/* Mobile menu, show/hide based on menu state */}
             <div className={`sm:hidden ${mobileMenuOpen ? 'block' : 'hidden'}`}>

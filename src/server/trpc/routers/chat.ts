@@ -5,6 +5,8 @@ import { chatThreads, directMessages, users } from '@/server/db/schema';
 import { TRPCError } from '@trpc/server';
 import { eq, and, or, desc, gt, sql, asc } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import webpush from 'web-push';
+import { subscribers } from '@/server/db/schema';
 
 export const chatRouter = router({
     // Get all chat threads for the current user
@@ -192,13 +194,156 @@ export const chatRouter = router({
             }
         }),
 
-    // Send a new message
+    // // Send a new message
+    // sendMessage: publicProcedure
+    //     .input(
+    //         z.object({
+    //             recipientId: z.string(),
+    //             content: z.string().min(1).max(2000),
+    //             threadId: z.number().optional(), // Optional if creating a new thread
+    //         }),
+    //     )
+    //     .mutation(async ({ input, ctx }) => {
+    //         if (!ctx.session?.user) {
+    //             throw new TRPCError({
+    //                 code: 'UNAUTHORIZED',
+    //                 message: 'You must be logged in to send messages',
+    //             });
+    //         }
+
+    //         try {
+    //             const senderId = ctx.session.user.id;
+
+    //             // Get sender's org
+    //             const sender = await db.query.users.findFirst({
+    //                 where: eq(users.id, senderId),
+    //             });
+
+    //             if (!sender?.orgId) {
+    //                 throw new TRPCError({
+    //                     code: 'BAD_REQUEST',
+    //                     message: 'User does not belong to an organization',
+    //                 });
+    //             }
+
+    //             // Check if recipient exists and is in the same org
+    //             const recipient = await db.query.users.findFirst({
+    //                 where: eq(users.id, input.recipientId),
+    //             });
+
+    //             if (!recipient) {
+    //                 throw new TRPCError({
+    //                     code: 'NOT_FOUND',
+    //                     message: 'Recipient not found',
+    //                 });
+    //             }
+
+    //             if (recipient.orgId !== sender.orgId) {
+    //                 throw new TRPCError({
+    //                     code: 'FORBIDDEN',
+    //                     message:
+    //                         'You can only message users in your organization',
+    //                 });
+    //             }
+
+    //             let threadId = input.threadId;
+
+    //             // If no threadId provided, find existing thread or create new one
+    //             if (!threadId) {
+    //                 // Check if thread already exists between these users
+    //                 const existingThread = await db.query.chatThreads.findFirst(
+    //                     {
+    //                         where: or(
+    //                             and(
+    //                                 eq(chatThreads.user1Id, senderId),
+    //                                 eq(chatThreads.user2Id, input.recipientId),
+    //                             ),
+    //                             and(
+    //                                 eq(chatThreads.user1Id, input.recipientId),
+    //                                 eq(chatThreads.user2Id, senderId),
+    //                             ),
+    //                         ),
+    //                     },
+    //                 );
+
+    //                 if (existingThread) {
+    //                     threadId = existingThread.id;
+    //                 } else {
+    //                     // Create new thread
+    //                     const [newThread] = await db
+    //                         .insert(chatThreads)
+    //                         .values({
+    //                             user1Id: senderId,
+    //                             user2Id: input.recipientId,
+    //                             orgId: sender.orgId,
+    //                             lastMessageAt: new Date(),
+    //                             lastMessagePreview: input.content.substring(
+    //                                 0,
+    //                                 50,
+    //                             ),
+    //                             createdAt: new Date(),
+    //                         })
+    //                         .returning();
+
+    //                     threadId = newThread.id;
+    //                 }
+    //             }
+
+    //             // Send the message
+    //             const [message] = await db
+    //                 .insert(directMessages)
+    //                 .values({
+    //                     threadId,
+    //                     senderId,
+    //                     recipientId: input.recipientId,
+    //                     content: input.content,
+    //                     createdAt: new Date(),
+    //                 })
+    //                 .returning();
+
+    //             // Update the thread's last message info
+    //             await db
+    //                 .update(chatThreads)
+    //                 .set({
+    //                     lastMessageAt: new Date(),
+    //                     lastMessagePreview: input.content.substring(0, 50),
+    //                 })
+    //                 .where(eq(chatThreads.id, threadId));
+
+    //             // Get the message with sender info
+    //             const messageWithSender =
+    //                 await db.query.directMessages.findFirst({
+    //                     where: eq(directMessages.id, message.id),
+    //                     with: {
+    //                         sender: {
+    //                             columns: {
+    //                                 id: true,
+    //                                 name: true,
+    //                                 email: true,
+    //                                 image: true,
+    //                             },
+    //                         },
+    //                     },
+    //                 });
+
+    //             return {
+    //                 message: messageWithSender,
+    //                 threadId,
+    //             };
+    //         } catch (error) {
+    //             console.error('Error sending message:', error);
+    //             throw new TRPCError({
+    //                 code: 'INTERNAL_SERVER_ERROR',
+    //                 message: 'Failed to send message',
+    //             });
+    //         }
+    //     }),
     sendMessage: publicProcedure
         .input(
             z.object({
+                threadId: z.number(),
                 recipientId: z.string(),
-                content: z.string().min(1).max(2000),
-                threadId: z.number().optional(), // Optional if creating a new thread
+                content: z.string(),
             }),
         )
         .mutation(async ({ input, ctx }) => {
@@ -209,132 +354,81 @@ export const chatRouter = router({
                 });
             }
 
-            try {
-                const senderId = ctx.session.user.id;
+            const senderId = ctx.session.user.id;
 
-                // Get sender's org
-                const sender = await db.query.users.findFirst({
-                    where: eq(users.id, senderId),
-                });
+            // Confirm thread access
+            const thread = await db.query.chatThreads.findFirst({
+                where: and(
+                    eq(chatThreads.id, input.threadId),
+                    or(
+                        eq(chatThreads.user1Id, senderId),
+                        eq(chatThreads.user2Id, senderId),
+                    ),
+                ),
+            });
 
-                if (!sender?.orgId) {
-                    throw new TRPCError({
-                        code: 'BAD_REQUEST',
-                        message: 'User does not belong to an organization',
-                    });
-                }
-
-                // Check if recipient exists and is in the same org
-                const recipient = await db.query.users.findFirst({
-                    where: eq(users.id, input.recipientId),
-                });
-
-                if (!recipient) {
-                    throw new TRPCError({
-                        code: 'NOT_FOUND',
-                        message: 'Recipient not found',
-                    });
-                }
-
-                if (recipient.orgId !== sender.orgId) {
-                    throw new TRPCError({
-                        code: 'FORBIDDEN',
-                        message:
-                            'You can only message users in your organization',
-                    });
-                }
-
-                let threadId = input.threadId;
-
-                // If no threadId provided, find existing thread or create new one
-                if (!threadId) {
-                    // Check if thread already exists between these users
-                    const existingThread = await db.query.chatThreads.findFirst(
-                        {
-                            where: or(
-                                and(
-                                    eq(chatThreads.user1Id, senderId),
-                                    eq(chatThreads.user2Id, input.recipientId),
-                                ),
-                                and(
-                                    eq(chatThreads.user1Id, input.recipientId),
-                                    eq(chatThreads.user2Id, senderId),
-                                ),
-                            ),
-                        },
-                    );
-
-                    if (existingThread) {
-                        threadId = existingThread.id;
-                    } else {
-                        // Create new thread
-                        const [newThread] = await db
-                            .insert(chatThreads)
-                            .values({
-                                user1Id: senderId,
-                                user2Id: input.recipientId,
-                                orgId: sender.orgId,
-                                lastMessageAt: new Date(),
-                                lastMessagePreview: input.content.substring(
-                                    0,
-                                    50,
-                                ),
-                                createdAt: new Date(),
-                            })
-                            .returning();
-
-                        threadId = newThread.id;
-                    }
-                }
-
-                // Send the message
-                const [message] = await db
-                    .insert(directMessages)
-                    .values({
-                        threadId,
-                        senderId,
-                        recipientId: input.recipientId,
-                        content: input.content,
-                        createdAt: new Date(),
-                    })
-                    .returning();
-
-                // Update the thread's last message info
-                await db
-                    .update(chatThreads)
-                    .set({
-                        lastMessageAt: new Date(),
-                        lastMessagePreview: input.content.substring(0, 50),
-                    })
-                    .where(eq(chatThreads.id, threadId));
-
-                // Get the message with sender info
-                const messageWithSender =
-                    await db.query.directMessages.findFirst({
-                        where: eq(directMessages.id, message.id),
-                        with: {
-                            sender: {
-                                columns: {
-                                    id: true,
-                                    name: true,
-                                    email: true,
-                                    image: true,
-                                },
-                            },
-                        },
-                    });
-
-                return {
-                    message: messageWithSender,
-                    threadId,
-                };
-            } catch (error) {
-                console.error('Error sending message:', error);
+            if (!thread) {
                 throw new TRPCError({
-                    code: 'INTERNAL_SERVER_ERROR',
-                    message: 'Failed to send message',
+                    code: 'FORBIDDEN',
+                    message: 'You do not have access to this chat thread',
                 });
             }
+
+            // Insert message
+            const [message] = await db
+                .insert(directMessages)
+                .values({
+                    threadId: input.threadId,
+                    senderId,
+                    recipientId: input.recipientId,
+                    content: input.content,
+                    createdAt: new Date(),
+                })
+                .returning();
+
+            // Get sender info
+            const [sender] = await db
+                .select({
+                    name: users.name,
+                })
+                .from(users)
+                .where(eq(users.id, senderId));
+
+            // ✅ Send Push Notification to recipient
+            const recipientSubscriptions = await db
+                .select()
+                .from(subscribers)
+                .where(eq(subscribers.userId, input.recipientId))
+                .execute();
+
+            for (const sub of recipientSubscriptions) {
+                const pushSubscription = {
+                    endpoint: sub.endpoint,
+                    keys: {
+                        p256dh: sub.p256dh,
+                        auth: sub.auth,
+                    },
+                };
+
+                try {
+                    await webpush.sendNotification(
+                        pushSubscription,
+                        JSON.stringify({
+                            command: 'notify',
+                            data: {
+                                title: sender?.name || 'New Message',
+                                body: input.content.substring(0, 100),
+                                icon: '/icon.png',
+                                url: `/chat/${input.threadId}`,
+                            },
+                        }),
+                    );
+                } catch (err) {
+                    console.error('Push notification error:', err);
+                }
+            }
+
+            return message;
         }),
 
     // Get new messages since a specific timestamp (for polling)

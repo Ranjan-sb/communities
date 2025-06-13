@@ -163,6 +163,27 @@ export const reactions = pgTable('reactions', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+export const subscribers = pgTable('subscribers', {
+    id: serial('id').primaryKey(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    endpoint: text('endpoint').notNull(),
+    expirationTime: timestamp('expiration_time'),
+    p256dh: text('p256dh').notNull(),
+    auth: text('auth').notNull(),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+export const notifications = pgTable('notifications', {
+    id: serial('id').primaryKey(),
+    userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    icon: text('icon'),
+    url: text('url'),
+    sentAt: timestamp('sent_at').notNull().defaultNow(),
+    isRead: boolean('is_read').notNull().default(false),
+});
+
 // Define relations
 export const communitiesRelations = relations(communities, ({ one, many }) => ({
     creator: one(users, {
@@ -332,6 +353,13 @@ export const directMessages = pgTable('direct_messages', {
     createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+    user: one(users, {
+        fields: [notifications.userId],
+        references: [users.id],
+    }),
+}));
+
 // Chat relations
 export const chatThreadsRelations = relations(chatThreads, ({ one, many }) => ({
     user1: one(users, {
@@ -376,5 +404,12 @@ export const userChatRelations = relations(users, ({ many }) => ({
     sentMessages: many(directMessages, { relationName: 'sentMessages' }),
     receivedMessages: many(directMessages, {
         relationName: 'receivedMessages',
+    }),
+}));
+
+export const subscribersRelations = relations(subscribers, ({ one }) => ({
+    user: one(users, {
+        fields: [subscribers.userId],
+        references: [users.id],
     }),
 }));

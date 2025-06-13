@@ -8,6 +8,7 @@ import {
     createResetPasswordEmail,
 } from '@/lib/email-templates';
 import { db } from '@/server/db';
+import { headers as nextHeaders } from 'next/headers';
 
 if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is not set');
@@ -101,4 +102,16 @@ export async function getUserSession(headers?: Headers) {
     return auth.api.getSession({
         headers: headers ?? new Headers(),
     });
+}
+
+export async function currentUser() {
+    const readonlyHeaders = await nextHeaders();
+    const reqHeaders = new Headers();
+
+    for (const [key, value] of readonlyHeaders.entries()) {
+        reqHeaders.set(key, value);
+    }
+
+    const session = await auth.api.getSession({ headers: reqHeaders });
+    return session?.user ?? null;
 }

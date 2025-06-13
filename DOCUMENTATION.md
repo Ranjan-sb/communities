@@ -111,19 +111,33 @@ The project combines the following technologies:
 ## Project Structure
 
 ```
-rstart/
+communities/
 ├── src/
 │   ├── app/                 # Next.js App Router pages and API routes
 │   │   ├── api/
 │   │   │   ├── auth/        # Auth API endpoints
-│   │   │   └── trpc/        # tRPC API handler
+│   │   │   ├── trpc/        # tRPC API handler
+│   │   │   └── ...          # Other API endpoints
+│   │   ├── admin/           # Admin panel routes
+│   │   ├── auth/            # Authentication routes (login, register)
+│   │   ├── communities/     # Community-related pages
+│   │   │   ├── [slug]/      # Community detail pages
+│   │   │   ├── join/        # Community joining pages
+│   │   │   └── new/         # Create new community page
+│   │   ├── posts/           # Post-related pages
+│   │   │   ├── [id]/        # Post detail pages
+│   │   │   └── new/         # Create new post page
 │   │   ├── layout.tsx       # Root layout with providers
 │   │   ├── page.tsx         # Home page
 │   │   └── globals.css      # Global styles
+│   ├── components/          # Reusable components
+│   │   ├── ui/              # UI components (buttons, inputs, etc.)
+│   │   ├── chat/            # Chat-related components
+│   │   └── ...              # Other components (navbar, editors, etc.)
 │   ├── lib/                 # Utility functions and shared code
 │   ├── providers/           # React context providers
-│   │   ├── theme-provider.tsx  # Theme management
-│   │   └── trpc-provider.tsx   # tRPC client setup
+│   ├── types/               # TypeScript type definitions
+│   ├── utils/               # Utility functions
 │   └── server/              # Server-side code
 │       ├── auth/            # Authentication configuration
 │       │   ├── client.ts    # Client-side auth hooks
@@ -133,9 +147,21 @@ rstart/
 │       │   ├── index.ts     # Database connection setup
 │       │   └── schema.ts    # Application data schema
 │       └── trpc/            # tRPC router and procedures
-│           └── router.ts    # API endpoint definitions
+│           ├── routers/     # Domain-specific routers
+│           │   ├── users.ts
+│           │   ├── admin.ts
+│           │   ├── communities.ts
+│           │   ├── community.ts
+│           │   ├── chat.ts
+│           │   ├── organizations.ts
+│           │   └── index.ts # Router exports
+│           └── ...          # tRPC setup files
 ├── drizzle/                 # Database migrations
+│   ├── meta/                # Migration metadata
+│   └── migrations/          # Migration files
 ├── public/                  # Static assets
+├── scripts/                 # Utility scripts
+├── .husky/                  # Git hooks
 └── [config files]           # Various configuration files
 ```
 
@@ -147,13 +173,20 @@ The project uses tRPC to create end-to-end typesafe APIs without manual schema d
 
 #### Procedure Definition
 
-API endpoints are defined in `src/server/trpc/router.ts`:
+API endpoints are defined in `src/server/trpc/routers/`:
 
 ```typescript
 // Define a procedure
 export const appRouter = router({
-    hello: publicProcedure.query(() => 'Hello world'),
-    // Add your additional procedures here
+    existing: publicProcedure.query(...),
+
+    // Add your new procedure
+    newFeature: publicProcedure
+        .input(z.object({ id: z.number() }))
+        .query(async ({ input }) => {
+            // Implementation
+            return { result: `Feature ${input.id}` };
+        }),
 });
 ```
 
@@ -272,7 +305,7 @@ export function AuthComponent() {
 1. Define your procedure in the router:
 
 ```typescript
-// src/server/trpc/router.ts
+// src/server/trpc/routers/index.ts
 export const appRouter = router({
     existing: publicProcedure.query(...),
 
@@ -353,7 +386,7 @@ const protectedRouter = router({
 
     - Keep all server-related code in the `src/server/` directory
     - Database models in `src/server/db/schema.ts`
-    - API routes using tRPC procedures in `src/server/trpc/router.ts`
+    - API routes using tRPC procedures in `src/server/trpc/routers/`
 
 3. **Client Logic**:
     - Page components in `src/app/` using the App Router

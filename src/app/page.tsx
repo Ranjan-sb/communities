@@ -6,6 +6,22 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { SparklesCore } from '@/components/ui/sparkles';
 import { useSession } from '@/server/auth/client';
 import { useEffect, useState } from 'react';
+import { subscribeUser } from './actions';
+
+export function urlBase64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
 
 export default function Home() {
     const { data: session } = useSession();
@@ -13,6 +29,30 @@ export default function Home() {
 
     useEffect(() => {
         setMounted(true);
+        // Add this part: service worker registration + push
+        const setupPush = async () => {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window))
+                return;
+
+            const registration =
+                await navigator.serviceWorker.register('/sw.js');
+            const permission = await Notification.requestPermission();
+
+            if (permission === 'granted') {
+                const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(
+                        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+                        // 'BK4Qh4tHl9i-QsQa2W5NbemMjkgbVTe9j-C7alwmgkpqoX33kLZfihDb8KYGxcXInm0OWS-uz6XCpkz5rqaN_eE',
+                    ), // Use .env
+                });
+
+                // Send to server (you’ll implement subscribeUser in `app/actions.ts`)
+                await subscribeUser(subscription);
+            }
+        };
+
+        setupPush();
     }, []);
 
     return (
