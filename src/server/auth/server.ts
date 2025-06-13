@@ -33,6 +33,7 @@ export const auth = betterAuth({
             'https://communities-three.vercel.app',
             'https://communities-git-dev-ranjan-bhats-projects.vercel.app',
             'https://communities-629729ibv-ranjan-bhats-projects.vercel.app',
+            'https://communities-git-feature-push-notif-03b32a-ranjan-bhats-projects.vercel.app',
         ],
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
