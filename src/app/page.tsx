@@ -25,8 +25,8 @@ export default function Home() {
     }, [session, router]);
 
     return (
-        <div className="relative flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center overflow-hidden text-center">
-            <div className="fixed inset-0 top-16 h-[calc(100vh-4rem)] w-screen bg-gradient-to-b from-blue-50 to-white dark:from-blue-950 dark:to-gray-900">
+        <div className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center overflow-hidden text-center">
+            <div className="fixed inset-0 top-14 h-[calc(100vh-3.5rem)] w-screen bg-gradient-to-b from-blue-50 to-white dark:from-blue-950 dark:to-gray-900">
                 <SparklesCore
                     id="tsparticles"
                     background="transparent"
@@ -38,12 +38,9 @@ export default function Home() {
                     className="h-full w-full"
                 />
             </div>
-            <div className="relative z-10 px-4">
+            <div className="relative z-10 px-4 pt-10 sm:pt-0">
                 <h1 className="mb-6 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl dark:text-gray-100">
-                    Let&apos;s Build a{' '}
-                    <span className="text-blue-600 dark:text-blue-400">
-                        Community
-                    </span>
+                    AU Namma Educators Parishad 2025{' '}
                 </h1>
                 <p className="mx-auto mb-8 max-w-2xl text-center text-xl text-gray-600 dark:text-gray-300">
                     Join us in creating a space where we can learn, share, and
