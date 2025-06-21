@@ -50,7 +50,7 @@ export default function Home() {
                 <div className="flex flex-col justify-center space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
                     <Button asChild size="lg">
                         <a
-                            href="/posts"
+                            href={mounted && session ? '/posts' : '/auth/login'}
                             className="rounded-lg px-8 py-3 text-lg font-semibold shadow-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                         >
                             Explore Posts
